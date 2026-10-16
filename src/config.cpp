@@ -244,10 +244,10 @@ constexpr std::array<ConfigItemMultipleValuesPair, 3> MIIVERSE_VALUES = {{
 }};
 
 constexpr std::array<ConfigItemMultipleValuesPair, 2> JDMO_PROTARIUM_VALUES = {{
-    {0, "Protarium"}, {1, "JDMO"},
+    {0, "Protarium"}, {1, "Melody Online"},
 }};
 constexpr std::array<ConfigItemMultipleValuesPair, 2> JDMO_OFF_VALUES = {{
-    {0, "Off"}, {1, "JDMO"},
+    {0, "Off"}, {1, "Melody Online"},
 }};
 
 constexpr std::array<ConfigItemMultipleValuesPair, 2> ACCOUNT_VALUES = {{
@@ -528,7 +528,7 @@ WUPSConfigAPICallbackStatus menu_opened(WUPSConfigCategoryHandle root) {
     // doing and can be read at any point, but says nothing about whose it is, because
     // every fork exports it under the same name. "Protarium" with "not loaded" beside
     // it is the pair that says their module is gone and only its leftovers were seen.
-    std::snprintf(line, sizeof(line), "JDMO: %s, %u URL(s)", jdmo_status(),
+    std::snprintf(line, sizeof(line), "Melody Online: %s, %u URL(s)", jdmo_status(),
                   static_cast<unsigned>(jdmo_swaps()));
     if (add_stub(activity, line) != WUPSCONFIG_API_CALLBACK_RESULT_SUCCESS) {
         return WUPSCONFIG_API_CALLBACK_RESULT_ERROR;
