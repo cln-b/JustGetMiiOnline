@@ -16,6 +16,7 @@
 
 #include "config.h"
 #include "account.h"
+#include "jdmo.h"
 #include "dns.h"
 #include "logger.h"
 #include "notify.h"
@@ -41,9 +42,11 @@
 
 #include <array>
 #include <cstdio>
+#include <cstring>
 
 Miiverse Config::miiverse = Miiverse::Protaverse;
 Account Config::account = Account::Protarium;
+bool Config::jdmo_enabled = false;
 SpotPass Config::spotpass = SpotPass::Protarium;
 bool Config::change_needs_reboot = false;
 bool Config::advanced_overrides = false;
@@ -52,6 +55,7 @@ namespace {
 
 constexpr const char *KEY_MIIVERSE = "miiverse";
 constexpr const char *KEY_ACCOUNT = "account";
+constexpr const char *KEY_JDMO = "jdmo_enabled";
 constexpr const char *KEY_SPOTPASS = "spotpass";
 constexpr const char *KEY_DEBUG_LOG = "debug_log";
 constexpr const char *KEY_ADVANCED_OVERRIDES = "advanced_overrides";
@@ -174,6 +178,13 @@ void miiverse_changed(ConfigItemMultipleValues *, uint32_t value) {
     LOG("ignoring an unrecognized Miiverse: %u", value);
 }
 
+void jdmo_changed(ConfigItemMultipleValues *, uint32_t value) {
+    if (value > 1 || Config::jdmo_enabled == (value != 0)) return;
+    Config::jdmo_enabled = value != 0;
+    Config::change_needs_reboot = true;
+    log_storage(WUPSStorageAPI_StoreU32(nullptr, KEY_JDMO, value), KEY_JDMO);
+}
+
 void account_changed(ConfigItemMultipleValues *, uint32_t value) {
     const auto chosen = static_cast<Account>(value);
     if (chosen == Config::account) {
@@ -230,6 +241,13 @@ constexpr std::array<ConfigItemMultipleValuesPair, 3> MIIVERSE_VALUES = {{
     {static_cast<uint32_t>(Miiverse::Protaverse), "Protaverse"},
     {static_cast<uint32_t>(Miiverse::Juxt), "Juxt"},
     {static_cast<uint32_t>(Miiverse::Roseverse), "Roseverse"},
+}};
+
+constexpr std::array<ConfigItemMultipleValuesPair, 2> JDMO_PROTARIUM_VALUES = {{
+    {0, "Protarium"}, {1, "JDMO"},
+}};
+constexpr std::array<ConfigItemMultipleValuesPair, 2> JDMO_OFF_VALUES = {{
+    {0, "Off"}, {1, "JDMO"},
 }};
 
 constexpr std::array<ConfigItemMultipleValuesPair, 2> ACCOUNT_VALUES = {{
@@ -328,6 +346,18 @@ WUPSConfigAPICallbackStatus menu_opened(WUPSConfigCategoryHandle root) {
     if (err != WUPSCONFIG_API_RESULT_SUCCESS) return log_config(err, __LINE__);
 
     err = WUPSConfigAPI_Category_AddItem(root, account_item);
+    if (err != WUPSCONFIG_API_RESULT_SUCCESS) return log_config(err, __LINE__);
+
+    const auto &jd_values = Config::account == Account::Protarium &&
+                            std::strcmp(account_host_name(), "Protarium") == 0
+                                ? JDMO_PROTARIUM_VALUES : JDMO_OFF_VALUES;
+    WUPSConfigItemHandle jd_item;
+    err = WUPSConfigItemMultipleValues_Create(
+        KEY_JDMO, "Just Dance Server", 0, Config::jdmo_enabled ? 1 : 0,
+        const_cast<ConfigItemMultipleValuesPair *>(jd_values.data()),
+        jd_values.size(), &jdmo_changed, &jd_item);
+    if (err != WUPSCONFIG_API_RESULT_SUCCESS) return log_config(err, __LINE__);
+    err = WUPSConfigAPI_Category_AddItem(root, jd_item);
     if (err != WUPSCONFIG_API_RESULT_SUCCESS) return log_config(err, __LINE__);
 
     // Second, and independent of the setting above: an account switch leaves this where
@@ -498,6 +528,12 @@ WUPSConfigAPICallbackStatus menu_opened(WUPSConfigCategoryHandle root) {
     // doing and can be read at any point, but says nothing about whose it is, because
     // every fork exports it under the same name. "Protarium" with "not loaded" beside
     // it is the pair that says their module is gone and only its leftovers were seen.
+    std::snprintf(line, sizeof(line), "JDMO: %s, %u URL(s)", jdmo_status(),
+                  static_cast<unsigned>(jdmo_swaps()));
+    if (add_stub(activity, line) != WUPSCONFIG_API_CALLBACK_RESULT_SUCCESS) {
+        return WUPSCONFIG_API_CALLBACK_RESULT_ERROR;
+    }
+
     std::snprintf(line, sizeof(line), "Inkay module: %s", account_module_state());
     if (add_stub(activity, line) != WUPSCONFIG_API_CALLBACK_RESULT_SUCCESS) {
         return WUPSCONFIG_API_CALLBACK_RESULT_ERROR;
@@ -956,6 +992,8 @@ void Config::Init() {
         }
         account = Account::Protarium;
     }
+
+    jdmo_enabled = load(KEY_JDMO, 0) == 1;
 
     // No stored Miiverse means follow the account server instead of assuming
     // Protaverse, so an account setting carried over from an older build arrives with
