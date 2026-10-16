@@ -46,7 +46,6 @@ bool active = false;
 bool account_saved = false;
 char saved_account[sizeof(HARBOUR_ACCOUNT)];
 uint32_t swaps = 0;
-const char *status = "off";
 
 // One RPL listing, with the same cap used by JGMO's existing Miiverse scanner.
 OSDynLoad_NotifyData rpls[64];
@@ -196,29 +195,20 @@ bool jdmo_supported(uint64_t title) {
 
 void jdmo_begin() {
     // main.cpp calls this only for supported titles with JDMO enabled.
-    if (account_saved) { status = "previous account restore incomplete"; return; }
+    if (account_saved) return;
     swaps = 0;
-    if (!save_and_redirect_account()) {
-        status = "account URL not redirected";
-        return;
-    }
+    if (!save_and_redirect_account()) return;
     active = true;
-    status = "waiting for RPLs";
     OSDynLoad_AddNotifyCallback(&late_rpl, nullptr);
 }
 
 void jdmo_apply() {
     if (!active) return;
     const int32_t count = OSDynLoad_GetNumberOfRPLs();
-    if (count <= 0) { status = "no RPL information"; return; }
+    if (count <= 0) return;
     const uint32_t wanted = count < 64 ? static_cast<uint32_t>(count) : 64;
-    if (!OSDynLoad_GetRPLInfo(0, wanted, rpls)) {
-        status = "RPL information unavailable";
-        return;
-    }
+    if (!OSDynLoad_GetRPLInfo(0, wanted, rpls)) return;
     for (uint32_t i = 0; i < wanted; ++i) swaps += patch_rpl(rpls[i]);
-    if (swaps) status = "Ubisoft URL patched";
-    else status = "Ubisoft URL not found";
     LOG("JDMO: %u Ubisoft URLs patched", static_cast<unsigned>(swaps));
 }
 
@@ -227,22 +217,12 @@ void jdmo_end() {
     active = false;
     if (!account_saved) return;
     const IosuHandle iosu;
-    if (!iosu.is_open()) { status = "account restore failed"; return; }
+    if (!iosu.is_open()) return;
     if (iosu.matches(ACCOUNT_ADDRESS, saved_account, sizeof(saved_account))) {
         account_saved = false;
         return;
     }
-    if (!iosu.matches(ACCOUNT_ADDRESS, HARBOUR_ACCOUNT, sizeof(HARBOUR_ACCOUNT))) {
-        status = "account changed by another plugin";
-        return;
-    }
-    if (!iosu.write_bytes(ACCOUNT_ADDRESS, saved_account, sizeof(saved_account))) {
-        status = "account restore failed";
-        return;
-    }
+    if (!iosu.matches(ACCOUNT_ADDRESS, HARBOUR_ACCOUNT, sizeof(HARBOUR_ACCOUNT))) return;
+    if (!iosu.write_bytes(ACCOUNT_ADDRESS, saved_account, sizeof(saved_account))) return;
     account_saved = false;
-    status = "account restored";
 }
-
-const char *jdmo_status() { return status; }
-uint32_t jdmo_swaps() { return swaps; }

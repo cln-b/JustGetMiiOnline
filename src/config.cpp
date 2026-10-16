@@ -16,7 +16,6 @@
 
 #include "config.h"
 #include "account.h"
-#include "jdmo.h"
 #include "dns.h"
 #include "logger.h"
 #include "notify.h"
@@ -42,7 +41,6 @@
 
 #include <array>
 #include <cstdio>
-#include <cstring>
 
 Miiverse Config::miiverse = Miiverse::Protaverse;
 Account Config::account = Account::Protarium;
@@ -243,11 +241,8 @@ constexpr std::array<ConfigItemMultipleValuesPair, 3> MIIVERSE_VALUES = {{
     {static_cast<uint32_t>(Miiverse::Roseverse), "Roseverse"},
 }};
 
-constexpr std::array<ConfigItemMultipleValuesPair, 2> JDMO_PROTARIUM_VALUES = {{
-    {0, "Protarium"}, {1, "Melody Online"},
-}};
-constexpr std::array<ConfigItemMultipleValuesPair, 2> JDMO_OFF_VALUES = {{
-    {0, "Off"}, {1, "Melody Online"},
+constexpr std::array<ConfigItemMultipleValuesPair, 2> JDMO_VALUES = {{
+    {0, "Default"}, {1, "Melody Online"},
 }};
 
 constexpr std::array<ConfigItemMultipleValuesPair, 2> ACCOUNT_VALUES = {{
@@ -348,14 +343,11 @@ WUPSConfigAPICallbackStatus menu_opened(WUPSConfigCategoryHandle root) {
     err = WUPSConfigAPI_Category_AddItem(root, account_item);
     if (err != WUPSCONFIG_API_RESULT_SUCCESS) return log_config(err, __LINE__);
 
-    const auto &jd_values = Config::account == Account::Protarium &&
-                            std::strcmp(account_host_name(), "Protarium") == 0
-                                ? JDMO_PROTARIUM_VALUES : JDMO_OFF_VALUES;
     WUPSConfigItemHandle jd_item;
     err = WUPSConfigItemMultipleValues_Create(
         KEY_JDMO, "Just Dance Server", 0, Config::jdmo_enabled ? 1 : 0,
-        const_cast<ConfigItemMultipleValuesPair *>(jd_values.data()),
-        jd_values.size(), &jdmo_changed, &jd_item);
+        const_cast<ConfigItemMultipleValuesPair *>(JDMO_VALUES.data()),
+        JDMO_VALUES.size(), &jdmo_changed, &jd_item);
     if (err != WUPSCONFIG_API_RESULT_SUCCESS) return log_config(err, __LINE__);
     err = WUPSConfigAPI_Category_AddItem(root, jd_item);
     if (err != WUPSCONFIG_API_RESULT_SUCCESS) return log_config(err, __LINE__);
@@ -528,12 +520,6 @@ WUPSConfigAPICallbackStatus menu_opened(WUPSConfigCategoryHandle root) {
     // doing and can be read at any point, but says nothing about whose it is, because
     // every fork exports it under the same name. "Protarium" with "not loaded" beside
     // it is the pair that says their module is gone and only its leftovers were seen.
-    std::snprintf(line, sizeof(line), "Melody Online: %s, %u URL(s)", jdmo_status(),
-                  static_cast<unsigned>(jdmo_swaps()));
-    if (add_stub(activity, line) != WUPSCONFIG_API_CALLBACK_RESULT_SUCCESS) {
-        return WUPSCONFIG_API_CALLBACK_RESULT_ERROR;
-    }
-
     std::snprintf(line, sizeof(line), "Inkay module: %s", account_module_state());
     if (add_stub(activity, line) != WUPSCONFIG_API_CALLBACK_RESULT_SUCCESS) {
         return WUPSCONFIG_API_CALLBACK_RESULT_ERROR;
