@@ -159,6 +159,8 @@ constexpr const char *GAME_ORIGINALS[] = {
     // a release yet. They send it to api.protarium.online, which is kept above, so
     // this only catches it on the nesting where this hook sees the original name.
     "api.disney.com",
+    "onlineconfigservice.ubi.com",  // Rayman Legends, added in the r27 build
+    "ags.voofoostudios.com",        // Pure Chess, added in the r27 build
 };
 
 // The domains their build catches by rule, tested as substrings because their

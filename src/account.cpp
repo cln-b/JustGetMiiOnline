@@ -67,17 +67,24 @@ constexpr const char *NINTENDO_ACCOUNT_HOST = "account.nintendo.net";
 enum class Host { Unknown, Protarium, Other };
 Host host = Host::Unknown;
 
-// The module their plugin talks to, and the export that answers what it's doing.
-// Both names are upstream Inkay's, so every fork carries them: Protarium's shipped
-// module exports these three symbols and so does Project Rose's, under the same
-// module name. Which is exactly why this can't identify a build, and why the marker
-// above still has to.
+// The modules their plugin talks to, and the export that answers what it's doing.
 //
-// What it can do is say whether an Inkay is loaded and patching, which the marker
-// can't say at all once this plugin has written over the evidence. Two readings, two
-// halves, neither one replaces the other.
-constexpr const char *INKAY_MODULE = "inkay";
+// Up to r25 every build used upstream's module name, inkay, and so do Project Rose's
+// and Pretendo's. r27 renamed Protarium's to inkay_protarium so it can sit beside
+// Pretendo's Inkay, which means the old name may now answer for somebody else's
+// module while theirs is loaded under the new one. So the new name is asked first,
+// and the old one only when nothing answers to it, for builds before r27.
+//
+// Answering to either name still doesn't identify a build: the export is upstream's,
+// so every fork carries it, and the old name is shared. That's why the marker above
+// still has to. What this can do is say whether an Inkay is loaded and patching,
+// which the marker can't say at all once this plugin has written over the evidence.
+// Two readings, two halves, neither one replaces the other.
+constexpr const char *INKAY_MODULES[] = {"inkay_protarium", "inkay"};
 constexpr const char *INKAY_STATUS_EXPORT = "Inkay_GetStatus";
+
+// Which of those answered, for the menu. Null until one has.
+const char *module_name = nullptr;
 
 // Their return values, which are upstream's InkayStatus. Taken as a plain int rather
 // than an enum of mine, because what crosses the call boundary is whatever their
@@ -246,8 +253,15 @@ Host look_for_protarium() {
 // memory. Only account_warning() and the menu read it.
 Patcher ask_the_module() {
     OSDynLoad_Module module = nullptr;
-    if (OSDynLoad_Acquire(INKAY_MODULE, &module) != OS_DYNLOAD_OK || module == nullptr) {
-        // Nothing answers to that name. A module can't show up later in a
+    for (const char *name : INKAY_MODULES) {
+        if (OSDynLoad_Acquire(name, &module) == OS_DYNLOAD_OK && module != nullptr) {
+            module_name = name;
+            break;
+        }
+        module = nullptr;
+    }
+    if (module == nullptr) {
+        // Nothing answers to either name. A module can't show up later in a
         // session, so this is the one answer here that's final the moment it's
         // given.
         return Patcher::Absent;
@@ -333,6 +347,10 @@ const char *account_module_state() {
     return "not answered";
 }
 
+const char *account_module_name() {
+    return module_name;
+}
+
 const char *account_status() {
     return status;
 }
@@ -405,7 +423,7 @@ void account_observe() {
             break;
         case Patcher::Unrecognized:
             LOG("a module named %s is loaded but does not export %s",
-                INKAY_MODULE, INKAY_STATUS_EXPORT);
+                module_name, INKAY_STATUS_EXPORT);
             break;
         case Patcher::Unknown:
             break;
