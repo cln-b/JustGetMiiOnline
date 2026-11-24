@@ -76,6 +76,10 @@ const char *account_host_name();
 // are worth printing.
 const char *account_module_state();
 
+// The module name that answered the probe, inkay_protarium from r27 on or inkay
+// before it, or null when none did. For the config menu.
+const char *account_module_name();
+
 // One line for the config menu, which is the only place a result can be read.
 const char *account_status();
 

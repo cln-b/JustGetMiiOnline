@@ -542,10 +542,15 @@ WUPSConfigAPICallbackStatus menu_opened(WUPSConfigCategoryHandle root) {
 
     // Beside the line above, not instead of it. That one says whose build is installed
     // and can only be read before this plugin writes; this one says what the module is
-    // doing and can be read at any point, but says nothing about whose it is, because
-    // every fork exports it under the same name. "Protarium" with "not loaded" beside
-    // it is the pair that says their module is gone and only its leftovers were seen.
-    std::snprintf(line, sizeof(line), "Inkay module: %s", account_module_state());
+    // doing and can be read at any point, but says little about whose it is, because
+    // every fork exports it and the older module name is shared. The name in brackets
+    // is which module answered. "Protarium" with "not loaded" beside it is the pair
+    // that says their module is gone and only its leftovers were seen.
+    if (const char *name = account_module_name()) {
+        std::snprintf(line, sizeof(line), "Inkay module: %s (%s)", account_module_state(), name);
+    } else {
+        std::snprintf(line, sizeof(line), "Inkay module: %s", account_module_state());
+    }
     if (add_stub(activity, line) != WUPSCONFIG_API_CALLBACK_RESULT_SUCCESS) {
         return WUPSCONFIG_API_CALLBACK_RESULT_ERROR;
     }
