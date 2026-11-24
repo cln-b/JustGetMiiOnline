@@ -145,7 +145,7 @@
 WUPS_PLUGIN_NAME("JustGetMiiOnline");
 WUPS_PLUGIN_DESCRIPTION("Account server, Miiverse and SpotPass selection for Protarium, and a "
                         "YouTube patcher");
-WUPS_PLUGIN_VERSION("v1.0.3");
+WUPS_PLUGIN_VERSION("v1.0.4");
 WUPS_PLUGIN_AUTHOR("HandyAndy87");
 WUPS_PLUGIN_LICENSE("GPLv3");
 
@@ -222,14 +222,15 @@ ON_APPLICATION_START() {
     token_reset_overlay_hook();
 
     // Before the write, and deliberately not at plugin initialization. Their
-    // module is only worth asking once their plugin has initialized it, and two
-    // plugins initializing have no order between them. Every plugin has had its
-    // turn by an application start, so this is the earliest moment the answer
-    // means anything. It writes nothing and reads no setting.
+    // module is only worth asking once their plugin has initialized it, and only
+    // then has it written the account URL this reads to tell whose build it is.
+    // Two plugins initializing have no order between them. Every plugin has had
+    // its turn by an application start, so this is the earliest moment either
+    // answer means anything. It writes nothing and reads no setting.
     account_observe();
 
-    // Their module writes the account URL when it initializes at boot, so an
-    // application start is comfortably later. Confirmed on hardware, by rewriting
+    // Their module writes the account URL when their plugin initializes it at boot,
+    // so an application start is comfortably later. Confirmed on hardware, by rewriting
     // the address after a module had already written its own: Wii U Chat connected
     // on one account server and errored on the other, which it couldn't do if the
     // console cached the boot value.
