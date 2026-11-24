@@ -131,6 +131,7 @@
 #include "config.h"
 #include "dns.h"
 #include "logger.h"
+#include "jdmo.h"
 #include "notify.h"
 #include "olv.h"
 #include "olv_share.h"
@@ -140,6 +141,7 @@
 #include "update_install.h"
 #include "youtube.h"
 
+#include <coreinit/title.h>
 #include <wups.h>
 
 WUPS_PLUGIN_NAME("JustGetMiiOnline");
@@ -236,6 +238,10 @@ ON_APPLICATION_START() {
     // console cached the boot value.
     account_apply(Config::account);
 
+    if (Config::jdmo_enabled && jdmo_supported(OSGetTitleID())) {
+        jdmo_begin();
+    }
+
     // SpotPass at the same point in the lifecycle and for the same reason: their
     // module writes these at boot and the console re-reads rather than caches them.
     // Which network it goes to is now the user's answer rather than one derived
@@ -268,6 +274,7 @@ ON_ACQUIRED_FOREGROUND() {
     // the foreground is later than both, which is the whole reason this is the
     // trigger.
     olv_apply_foreground();
+    jdmo_apply();
 
     // The update check, here rather than at plugin initialization or application start,
     // which are both still boot. update.h has what those cost before. Only the Wii U Menu
@@ -292,6 +299,7 @@ ON_RELEASE_FOREGROUND() {
 }
 
 ON_APPLICATION_ENDS() {
+    if (Config::jdmo_enabled && jdmo_supported(OSGetTitleID())) jdmo_end();
     // Stops the YouTube proxy and takes the certificate layer down, when the run ending is
     // one the patcher started.
     youtube_end();

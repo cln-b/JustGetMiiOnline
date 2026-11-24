@@ -24,6 +24,7 @@ public:
 
     static Miiverse miiverse;
     static Account account;
+    static bool jdmo_enabled;
 
     // Which network serves SpotPass. Constrained by the two above, not free: choice.h
     // holds which values are legal for a given pairing and which way the two-answer

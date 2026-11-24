@@ -19,6 +19,7 @@
 #include "account.h"
 #include "logger.h"
 #include "scan.h"
+#include "jdmo.h"
 #include "token.h"
 
 #include <wups.h>
@@ -705,6 +706,7 @@ DECL_FUNCTION(int32_t, OSCheckActiveThreads) {
         premain_pid = static_cast<uint32_t>(OSGetUPID());
         premain_swaps += apply_sweep();
         youtube_premain();
+        jdmo_apply();
     }
 
     return count;

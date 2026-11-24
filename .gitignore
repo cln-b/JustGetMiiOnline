@@ -35,3 +35,5 @@ inkay_config.local.h
 # excludes, so a fresh clone protects itself.
 .scratch/
 *.local.txt
+
+.DS_Store
