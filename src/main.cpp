@@ -299,7 +299,10 @@ ON_RELEASE_FOREGROUND() {
 }
 
 ON_APPLICATION_ENDS() {
-    if (Config::jdmo_enabled && jdmo_supported(OSGetTitleID())) jdmo_end();
+    // Always offer the restore. jdmo_end() is a no-op unless this session actually
+    // installed Harbour's URL, and the setting can change before the title finishes
+    // exiting, so checking the current config here can skip the only restore.
+    jdmo_end();
     // Stops the YouTube proxy and takes the certificate layer down, when the run ending is
     // one the patcher started.
     youtube_end();
