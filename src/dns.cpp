@@ -155,6 +155,10 @@ constexpr const char *GAME_ORIGINALS[] = {
     "gosca.ea.com",                 // Need for Speed, added in the September 29 build
     "wup-ama.app.nintendo.net",     // added in the r17 build
     "nws.demae-can.com",            // added in the r17 build
+    // Disney Infinity 1.0, 2.0 and 3.0, on their disney-infinity-url branch and not in
+    // a release yet. They send it to api.protarium.online, which is kept above, so
+    // this only catches it on the nesting where this hook sees the original name.
+    "api.disney.com",
 };
 
 // The domains their build catches by rule, tested as substrings because their
