@@ -35,14 +35,14 @@
 void account_init();
 void account_shutdown();
 
-// Ask their module what it's up to. Different question from the one
-// account_init() asks, and it has to be asked at a different time.
+// Find out whose Inkay is installed and what its module is up to. Two readings: the
+// account URL their module wrote into IOSU, and an export their module publishes.
 //
-// account_init() reads the account URL out of IOSU, and that read is only good
-// before this plugin has written to the same address, so it runs as early as
-// there is. This one calls an export their module publishes, and that answer is
-// only good after their plugin has had its turn to initialize the module, so it
-// runs as late as an application start. Swap the two moments and both go wrong.
+// Both are only good after their plugin has had its turn to initialize the module,
+// since that's when the URL goes in, and two plugins initializing have no order
+// between them. The URL read is also only good before this plugin writes to the same
+// address. The first application start is the one moment that satisfies both, so
+// account_init() reads neither. See #45.
 //
 // Call once per application start, before account_apply(). It writes nothing and
 // takes no setting: what it asks is true of the console, not of any choice made

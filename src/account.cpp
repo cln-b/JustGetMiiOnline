@@ -41,23 +41,27 @@ constexpr const char *PRETENDO_ACCOUNT_URL = "https://account.pretendo.cc/v1/api
 //
 // INVARIANT: finding this marker proves their build is installed. Not finding it
 // proves nothing on its own, because this plugin writes Pretendo's URL to the same
-// address. So look_for_protarium() answers Unknown, not Other, when it finds this
-// plugin's own URL.
+// address, and because Nintendo's own URL sits there until their plugin has asked
+// their module to write. So look_for_protarium() answers Unknown, not Other, for
+// either of those.
 //
-// An earlier version of this note claimed the loader is re-entered on every title
-// switch, so that account_init() ran once per title and every read after the first
-// saw whatever account_apply() had written. Wrong, and the plugin backend's own
-// source says so: it calls the init hooks through a predicate,
-// `!container.isInitDone()`, and stamps every container done straight afterwards, so
-// INITIALIZE_PLUGIN is skipped for an already-loaded plugin from the second title
-// onward. ON_APPLICATION_START, called a few lines later with no predicate, is the
-// hook that runs every title.
+// When the read happens matters as much as what it looks for. Their module doesn't
+// write this address when it loads. Their plugin calls the module's Inkay_Initialize
+// from its own INITIALIZE_PLUGIN, and the URL goes in then. Two plugins' init hooks
+// run in the order the SD card's directory lists the files, which nobody controls, so
+// a read from this plugin's INITIALIZE_PLUGIN found Nintendo's URL whenever this
+// plugin happened to go first, and called their build somebody else's for the whole
+// boot. That's #45. Every plugin has had its turn by the first application start, so
+// the read is made there, in account_observe(), and before account_apply() writes.
 //
-// So this read happens once per boot, before account_apply() has written anywhere,
-// and the Unknown answer above guards against a race that can't happen rather than
-// one that routinely does. It stays because it costs nothing, and because the address
-// is shared with a module whose behavior is not mine to assume.
+// After the first application start the read only repeats if it got no answer, and by
+// then the address may hold this plugin's own write, which is the Unknown answer above.
 constexpr const char *PROTARIUM_MARKER = "protarium.";
+
+// What the console holds there before any Inkay has written. Part of a host for the
+// same reason as the marker: finding it says nothing about which build is installed,
+// only that none has written yet.
+constexpr const char *NINTENDO_ACCOUNT_HOST = "account.nintendo.net";
 
 // Three states, not two: it may simply not be knowable.
 enum class Host { Unknown, Protarium, Other };
@@ -214,6 +218,12 @@ Host look_for_protarium() {
         return Host::Unknown;
     }
 
+    // Nintendo's own URL means no Inkay has written yet, which can't name a build.
+    // Calling that Other is what put #45's warning on screen.
+    if (std::strstr(buffer, NINTENDO_ACCOUNT_HOST) != nullptr) {
+        return Host::Unknown;
+    }
+
     return Host::Other;
 }
 
@@ -337,25 +347,21 @@ void account_init() {
     // failing here costs the account setting and nothing else.
     if (!iosu_init()) {
         status = "refused (no Mocha)";
-        return;
     }
 
-    // Asked once and kept.
-    //
-    // This guard is belt and suspenders now, not the mechanism it was written as.
-    // account_init() is called from INITIALIZE_PLUGIN, which the backend runs once
-    // per boot, not once per title: see the note by PROTARIUM_MARKER above for why,
-    // and for the wrong reasoning this replaced. So there's normally no second call
-    // for it to catch.
-    //
-    // Kept anyway, because a plugin global outlives the process it was set in and
-    // the cost is one comparison. If the plugin set changes mid-session and this
-    // plugin is reloaded, the hook does run again, and the answer this holds is
-    // still the one taken before anything here wrote to the address.
-    //
-    // Unknown isn't an answer, so it isn't latched: a read that failed gets
-    // another turn instead of costing the session its only attempt.
-    if (host != Host::Unknown) {
+    // Deliberately no read of the account URL here. See the note by PROTARIUM_MARKER:
+    // at this point their plugin may not have asked their module to write it yet.
+}
+
+namespace {
+
+// Which build wrote the account URL. Asked once and kept.
+//
+// A plugin global outlives the process it was set in, so one definite answer serves
+// the whole session. Unknown isn't an answer, so it isn't latched: a read that failed,
+// or found nothing that names a build, gets another turn at the next application start.
+void identify_host() {
+    if (host != Host::Unknown || !iosu_ready()) {
         return;
     }
 
@@ -372,12 +378,16 @@ void account_init() {
     }
 }
 
+} // namespace
+
 void account_observe() {
-    // Latched the same way, and for the same reason, as the marker above: a plugin
-    // global outlives the process it was set in, so one definite answer serves the
-    // whole session. Unknown isn't an answer and isn't latched, so a probe that
-    // came too early, or found their plugin still uninitialized, gets another turn
-    // at the next application start.
+    // First, because account_apply() runs right after this and may write over what it
+    // reads.
+    identify_host();
+
+    // Latched the same way, and for the same reason, as the host above. A probe that
+    // came too early, or found their plugin still uninitialized, gets another turn at
+    // the next application start.
     if (patcher != Patcher::Unknown) {
         return;
     }
